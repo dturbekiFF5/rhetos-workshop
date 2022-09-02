@@ -1,0 +1,8 @@
+LINQ
+When using LINQ, it matters in which order we call methods. It changes how SQL code will be generated which can also affect performance. For example:
+In first query: 
+	first method is ToList() which is reading whole table, than we say we only want Title after getting all columns, and then we take only first 3 rows. Response data is of type IEnumerable<String>.
+In third query: 
+	we select only first 3 books, we immediately specify we want Title, then we say we want to make a list, which generates List<string> instead of IEnumerable<String>.
+In last query:
+	we can't use lambda expressions unless we use IEnumerable<>. We create IEnumerable<> by first using ToList() method.

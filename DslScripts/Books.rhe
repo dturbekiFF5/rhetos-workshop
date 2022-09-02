@@ -1,0 +1,101 @@
+// Represents a business module, and a namespace in C# code.
+Module Bookstore {
+	// represents a business object (C# class) and a table in database that contains the object's data
+	Entity Book {
+		// properties
+		ShortString Code { AutoCode; }
+		ShortString Title;
+		Integer NumberOfPages;
+		
+		// business features
+		ItemFilter CommonMisspelling 'book => book.Title.Contains("curiousity")';
+		InvalidData CommonMisspelling 'It is not allowed to enter misspelled word "curiousity".';
+
+		Logging;
+	}
+
+	// Entities and properties
+	Entity Person {
+		ShortString Name;
+	}
+
+	// One-to-many relationship (master-detail)
+	Entity Comment {
+        Reference Book { Detail; }
+        LongString Text;
+    }
+
+	// Many-to-many relationship (join table)
+	Entity Topic {
+		ShortString Name { Unique; Required; }
+	}
+
+	Entity BookTopic {
+		Reference Book { Detail; }
+		Reference Topic { Required; }
+
+		UniqueMultiple 'Book Topic';
+	}
+
+	// One-to-one relationship (extensions)
+	Entity ChildrensBook {
+		Extends Bookstore.Book;
+
+		Integer AgeFrom;
+		Integer AgeTo;
+		IntegerRange AgeFrom AgeTo; // A simple validation.
+	}
+
+	Entity ForeignBook {
+		Extends Bookstore.Book;
+
+		ShortString OriginalLanguage;
+		Reference Translator Bookstore.Person;
+	}
+
+	// Additionall assignment
+	// a) Each employee has name and a unique VAT number.
+	Entity Employee {
+		ShortString Name;
+		Integer VAT;
+	}
+
+	// b) Some of the employees are managers (1:1 relationship to Employee entity), each manager has additional textual information on bonuses.
+	Entity Manager {
+		Extends Bookstore.Employee;
+
+		ShortString Bonuses;
+	}
+
+	// c) Each employee can have multiple education records, with date and description (1:N relationship).
+	Entity EducationRecord {
+		Reference Employee { Detail; } // Detail: adds Required, CascadeDelete and SqlIndex
+
+		ShortString Description;
+		DateTime EducationDate;
+	}
+
+	// d) Bookstore has departments, each department has a unique code and description.
+	Entity Department {
+		ShortString Code { AutoCode; } // AutoCode generates Unique constraint
+		ShortString Description;
+	}
+
+	// e) Each employee is assigned to one or more departments (N:N relationship).
+	Entity EmployeeDepartment {
+		Reference Employee { Detail; }
+		Reference Department { Required; }
+	}
+}
+
+// Nested statements written in flat format
+
+// Module Bookstore;
+// Entity Bookstore.Book;
+// ShortString Bookstore.Book.Code; 
+// AutoCode Bookstore.Book.Code;
+// ShortString Bookstore.Book.Title;
+// Integer Bookstore.Book.NumberOfPages;
+// ItemFilter Bookstore.Book.CommonMisspelling 'book => book.Title.Contains("curiousity")';
+// InvalidData Bookstore.Book.CommonMisspelling 'It is not allowed to enter misspelled word "curiousity".';
+// Logging Bookstore.Book;
