@@ -1,7 +1,10 @@
+using System;
 using Microsoft.AspNetCore.Mvc;
 using Rhetos;
 using Rhetos.Processing;
 using Rhetos.Processing.DefaultCommands;
+using System.Linq;
+using Rhetos.Dom.DefaultConcepts;
 
 namespace Bookstore.Service.Controllers;
 
@@ -23,12 +26,13 @@ public class DemoController : ControllerBase {
         return $"{result.TotalCount} books.";
     }
 
-    [HttpGet(Name = "WriteBook")]
-    public string WriteBook() {
-        var newBook = new Bookstore.Book { Title = "NewBook", NumberOfPages = 123 };
+    [HttpPost(Name = "WriteBook")]
+    public string WriteBook(string title, int numberOfPages) {
+        var newBook = new Bookstore.Book { Title = title, NumberOfPages = numberOfPages };
         var saveCommandInfo = new SaveEntityCommandInfo { Entity = "Bookstore.Book", DataToInsert = new[] { newBook } };
         processingEngine.Execute(saveCommandInfo);
         unitOfWork.CommitAndClose(); // Commits and closes database transaction.
         return "1 book inserted.";
     }
+
 }

@@ -8,12 +8,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="ConsoleDump" Version="0.7.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
     <PackageReference Include="Rhetos.CommonConcepts" Version="5.2.0" />
     <PackageReference Include="Rhetos.Host" Version="5.2.0" />
     <PackageReference Include="Rhetos.Host.AspNet" Version="5.2.0" />
     <PackageReference Include="Rhetos.MSBuild" Version="5.2.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="NewFolder\" />
   </ItemGroup>
 
 </Project>
