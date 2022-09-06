@@ -5,13 +5,19 @@ Module Bookstore {
 		// properties
 		ShortString Code { AutoCode; }
 		ShortString Title;
-		Integer NumberOfPages;
+		Reference Author Bookstore.Person;
+		// Integer NumberOfPages;
+		// Day 2 Simple business rules
+		Integer NumberOfPages { MinValue 1; }
+		Reference Genre Bookstore.Genre;
+		DateTime InsertedAt { CreationTime; DenyUserEdit; }
+
 		
 		// business features
 		ItemFilter CommonMisspelling 'book => book.Title.Contains("curiousity")';
 		InvalidData CommonMisspelling 'It is not allowed to enter misspelled word "curiousity".';
 
-		Logging;
+		Logging { AllProperties; }
 	}
 
 	// Entities and properties
@@ -86,6 +92,81 @@ Module Bookstore {
 		Reference Employee { Detail; }
 		Reference Department { Required; }
 	}
+
+	// Day 2 Read only data structures
+	// 2) Total number of topics for each book
+	SqlQueryable NumberOfTopicsPerBook
+    "
+        SELECT
+            b.ID,
+            NumberOfTopics = COUNT(bt.ID)
+        FROM
+            Bookstore.Book b
+            LEFT JOIN Bookstore.BookTopic bt ON bt.BookID = b.ID
+        GROUP BY
+            b.ID
+    "
+	{
+		Extends Bookstore.Book;
+		Integer NumberOfTopics;
+
+		AutodetectSqlDependencies;
+	}
+	
+	// The bookstore application should contain a grid that displays a list of books, with three columns: BookName, AuthorName and NumberOfTopics. Create a data source for the grid (write a new Browse that takes data from entities Book, Person and the previously created SqlQueryable)
+	Browse BookList Bookstore.Book {
+		Take Title;
+		Take 'Author.Name';
+		Take NumberOfTopics 'Extension_NumberOfTopicsPerBook.NumberOfTopics';
+	}
+
+	// Demonstrate adding a Genre entity with two entries, review the generated records in database.
+	// Tested using SQL in DB
+	Hardcoded Genre {
+		ShortString Label;
+		LongString Description;
+		Bool IsFiction;
+
+		Entry ScienceFiction {
+			Value Label 'Science fiction';
+			Value Description 'A speculative fiction with imagined elements that are inspired by natural sciences or social sciences.';
+			Value IsFiction 1;
+		}
+
+		Entry Biography {
+			Value Label 'Biography';
+			Value Description 'A written narrative of a person''s life.';
+			Value IsFiction 0;
+		}
+	}
+
+	Action InsertManyBooks
+    '(parameter, repository, userInfo) => {
+        for (int i = 0; i < parameter.NumberOfBooks; i++)
+        {
+            string newTitle = parameter.TitlePrefix + " - " + (i + 1);
+            var newBook = new Bookstore.Book { Code = "+++", Title = newTitle };
+            repository.Bookstore.Book.Insert(newBook);
+        }
+    }'
+	{
+		Integer NumberOfBooks;
+		ShortString TitlePrefix;
+	}
+
+	Action CreatePrincipal '(parameter, repository, userInfo) => {
+        var principal = new Common.Principal
+        {
+            ID = parameter.ID ?? Guid.NewGuid(),
+            Name = parameter.Name
+        };
+        repository.Common.Principal.Insert(principal);
+    }'
+    {
+        Guid ID;
+        ShortString Name;
+    }
+	
 }
 
 // Nested statements written in flat format
