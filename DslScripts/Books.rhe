@@ -1,5 +1,8 @@
 // Represents a business module, and a namespace in C# code.
 Module Bookstore {
+
+	AutoDetectSqlDependencies;
+
 	// represents a business object (C# class) and a table in database that contains the object's data
 	Entity Book {
 		// properties
@@ -12,14 +15,120 @@ Module Bookstore {
 		Reference Genre Bookstore.Genre;
 		DateTime InsertedAt { CreationTime; DenyUserEdit; }
 
-		
+
 		// business features
 		ItemFilter CommonMisspelling 'book => book.Title.Contains("curiousity")';
 		InvalidData CommonMisspelling 'It is not allowed to enter misspelled word "curiousity".';
+		
+		// Day 3
+		ItemFilter LongBooks 'item => item.NumberOfPages >= 500';
 
+		ItemFilter ForeignAuthorXWithComments 'item =>
+            item.Author.Name.StartsWith("X")
+            && item.Extension_ForeignBook.ID != null
+            && _domRepository.Bookstore.Comment.Subquery.Where(c => c.BookID == item.ID).Count() >= 3';
+		
+		ComposableFilterBy LongBooks2 '(query, repository, parameter) => {
+            return query.Where(item => item.NumberOfPages >= 500);
+        }';
+
+		ComposableFilterBy LongBooks3 '(query, repository, parameter) => {
+            var filtered = query.Where(item => item.NumberOfPages >= parameter.MinimumPages);
+            if (parameter.ForeignBooksOnly == true)
+                filtered = filtered.Where(item => item.Extension_ForeignBook.ID != null);
+            return filtered;
+        }';
+
+		FilterBy ComplexSearch '(repository, parameter) => {
+            var query = repository.Bookstore.Book.Query(item => item.NumberOfPages >= parameter.MinimumPages);
+            if (parameter.ForeignBooksOnly == true)
+                query = query.Where(item => item.Extension_ForeignBook.ID != null);
+            Book[] books = query.ToSimple().ToArray();
+
+            if (parameter.MaskTitles == true)
+                foreach (var book in books.Where(b => !string.IsNullOrEmpty(b.Title)))
+                    book.Title = book.Title.First() + "***" + book.Title.Last();
+
+            return books;
+        }';
+			
 		Logging { AllProperties; }
 	}
 
+	// Day 3 Filters and other read methods
+	Parameter LongBooks2 { }
+	Parameter LongBooks3 {
+        Integer MinimumPages;
+        Bool ForeignBooksOnly;
+    }
+	Parameter ComplexSearch {
+        Integer MinimumPages;
+        Bool ForeignBooksOnly;
+        Bool MaskTitles;
+    }
+	Parameter PersonFilter {
+        ShortString NamePattern;
+        Integer LimitResultCount;
+    }
+	// Day 3 - Data validation
+	Entity BookRating {
+        Extends Bookstore.Book;
+        Decimal Rating; // ComputedFrom Bookstore.ComputeBookRating
+    }
+	
+	Entity Disposal {
+		Reference Book { Required; }
+		LongString Explanation { Required; }
+		DateTime EffectiveSince { CreationTime; }
+
+		ItemFilter ImportantBookExplanation 'item => item.Book.Title.Contains("important") && item.Explanation.Length < 50';
+		InvalidData ImportantBookExplanation 'When disposing an important book, the explanation should be at least 50 characters long.';
+
+		ItemFilter HighRating 'item => item.Book.Extension_BookRating.Rating > 100';
+		InvalidData HighRating 'You are not allowed to dispose a book with rating above 100.';
+	}
+
+	// Day 3 - Low-level database concepts
+	SqlProcedure ComputePersonInfo
+        "@NamePattern NVARCHAR(256), @LimitResultCount INT"
+        "
+            SELECT TOP (@LimitResultCount)
+                p.ID, Name, NameLength = LEN(p.Name), PersonID = p.ID
+            FROM
+                Bookstore.Person p
+            WHERE
+                p.Name LIKE '%' + @NamePattern + '%'
+            ORDER BY
+                p.Name
+        ";
+
+	Computed PersonInfo 'repository => { throw new Rhetos.UserException("Use filter \"Bookstore.PersonFilter\" to read the data."); }'  {
+        ShortString Name;
+        Integer NameLength;
+        Guid PersonID;
+
+        FilterBy PersonFilter
+            '(repository, parameter) =>
+            {
+                // Always separate parameters to prevent SQL injection.
+                string sql = "EXEC Bookstore.ComputePersonInfo @p0, @p1";
+                var sqlParams = new object[] { parameter.NamePattern, parameter.LimitResultCount };
+
+                var result = _executionContext.EntityFrameworkContext.Database
+                    .SqlQuery<Bookstore.PersonInfo>(sql, sqlParams)
+                    .ToArray();
+                return result;
+            }';
+    }
+
+	
+	// SQL View
+	 SqlView BookView 'SELECT * FROM Bookstore.Book'
+    {
+    }
+	
+	
+	
 	// Entities and properties
 	Entity Person {
 		ShortString Name;
@@ -166,7 +275,6 @@ Module Bookstore {
         Guid ID;
         ShortString Name;
     }
-	
 }
 
 // Nested statements written in flat format
