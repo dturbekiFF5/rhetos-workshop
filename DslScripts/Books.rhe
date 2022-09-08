@@ -14,7 +14,29 @@ Module Bookstore {
 		Integer NumberOfPages { MinValue 1; }
 		Reference Genre Bookstore.Genre;
 		DateTime InsertedAt { CreationTime; DenyUserEdit; }
+		//Day 4
+		// Deactivatable { DeactivateOnDelete };
+		Reference AssignedTo Bookstore.Employee;
+		RowPermissions {
 
+        AllowRead EveryoneCanRead 'context => book => true';
+
+        Allow OwnerCanWrite 'context =>
+            {
+                Guid employeeId = context.Repository
+                    .Bookstore.Employee.Query()
+                    .Where(e => e.UserName == context.UserInfo.UserName)
+                    .Select( e => e.ID)
+                    .SingleOrDefault();
+                return book => book.AssignedTo.ID == employeeId;
+            }';
+
+        // Better:
+        AllowWrite OwnerCanWrite2 'context =>
+            {
+                return book => book.AssignedTo.UserName == context.UserInfo.UserName;
+            }';
+    }
 
 		// business features
 		ItemFilter CommonMisspelling 'book => book.Title.Contains("curiousity")';
@@ -51,9 +73,69 @@ Module Bookstore {
 
             return books;
         }';
-			
-		Logging { AllProperties; }
+		
+		// Day 4 
+		// MonitoredRecord;
+
+        // The "MonitoredRecord”" concept will generate the following features:
+        // DateTime CreatedAt { CreationTime; DenyUserEdit; }
+        // Logging { AllProperties; }
 	}
+
+	// Day 4 Save method
+	Entity Review {
+        Reference Book { Required; }
+        Integer Score { Required; MinValue 1; MaxValue 5; }
+        LongString Text;
+		DateTime LastModifiedTime;
+
+        SaveMethod
+        {
+             Initialization DefaultTextFromScore
+            '
+                foreach (var item in insertedNew)
+                    if (string.IsNullOrEmpty(item.Text) && item.Score != null)
+                        item.Text = item.Score.Value >= 3
+                            ? "I like it"
+                            : "I don''t like it";
+            ';
+			OnSaveUpdate UpdateLastModifiedTime
+			'
+				foreach(var item in updatedNew) {
+					// item.LastModifiedTime = Date.Now();
+				}
+				
+			';
+        }
+    }
+
+	Entity Comment
+{
+    LongString Text;
+    Reference Book { Detail; }
+
+    RowPermissions
+    {
+        AllowRead EveryoneCanRead 'context =>
+            {
+                return comment => comment.Book.AssignedTo.ID != null;
+            }';
+
+        Allow OwnerCanWrite 'context =>
+            {
+                Guid employeeId = context.Repository
+                    .Bookstore.Employee.Query()
+                    .Where(e => e.UserName == context.UserInfo.UserName)
+                    .Select(e => e.ID)
+                    .SingleOrDefault();
+
+                return comment => comment.Book.AssignedTo.ID == employeeId;
+            }';
+
+        // Better:
+        InheritFrom Bookstore.Comment.Book;
+    }
+}
 
 	// Day 3 Filters and other read methods
 	Parameter LongBooks2 { }
@@ -121,24 +203,19 @@ Module Bookstore {
             }';
     }
 
-	
 	// SQL View
-	 SqlView BookView 'SELECT * FROM Bookstore.Book'
-    {
-    }
-	
-	
+	 SqlView BookView 'SELECT * FROM Bookstore.Book' { }
 	
 	// Entities and properties
 	Entity Person {
-		ShortString Name;
+		ShortString Name; 
 	}
 
 	// One-to-many relationship (master-detail)
-	Entity Comment {
-        Reference Book { Detail; }
-        LongString Text;
-    }
+	// Entity Comment {
+    //    Reference Book { Detail; }
+    //    LongString Text;
+    // }
 
 	// Many-to-many relationship (join table)
 	Entity Topic {
@@ -171,6 +248,7 @@ Module Bookstore {
 	// Additionall assignment
 	// a) Each employee has name and a unique VAT number.
 	Entity Employee {
+		ShortString UserName;
 		ShortString Name;
 		Integer VAT;
 	}

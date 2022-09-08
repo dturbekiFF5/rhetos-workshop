@@ -5,6 +5,11 @@ using Rhetos.Processing;
 using Rhetos.Processing.DefaultCommands;
 using System.Linq;
 using Rhetos.Dom.DefaultConcepts;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Threading.Tasks;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Bookstore.Service.Controllers;
 
@@ -35,4 +40,13 @@ public class DemoController : ControllerBase {
         return "1 book inserted.";
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task Login() {
+        var claimsIdentity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "SampleUser") }, CookieAuthenticationDefaults.AuthenticationScheme);
+
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
+            new ClaimsPrincipal(claimsIdentity),
+            new AuthenticationProperties() { IsPersistent = true });
+    }
 }
